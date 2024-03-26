@@ -80,6 +80,7 @@ settings.workspace = true
 simplelog = "0.9"
 smol.workspace = true
 tab_switcher.workspace = true
+supermaven.workspace = true
 task.workspace = true
 tasks_ui.workspace = true
 terminal_view.workspace = true
