@@ -9518,6 +9518,7 @@ dependencies = [
  "futures 0.3.28",
  "gpui",
  "language",
+ "postage",
  "project",
  "serde",
  "serde_json",
