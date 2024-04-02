@@ -238,7 +238,7 @@ impl Element for Img {
                 let image_size = data.size();
                 match (style.size.width, style.size.height) {
                     (Length::Auto, Length::Auto) => {
-                        style.size = Size {
+                        style.max_size = Size {
                             width: Length::Definite(DefiniteLength::Absolute(
                                 AbsoluteLength::Pixels(px(image_size.width.0 as f32)),
                             )),
@@ -250,6 +250,8 @@ impl Element for Img {
                     _ => {}
                 }
             }
+
+            cx.request_measured_layout(style, measure)
 
             cx.request_layout(&style, [])
         });

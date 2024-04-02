@@ -199,25 +199,35 @@ impl Render for ImageView {
             .top_0()
             .left_0();
 
+        // div()
+        //     .debug_bg_red()
+        //     .debug_below()
+        //     .track_focus(&self.focus_handle)
+        //     .max_h_full()
+        //     .w_full()
+        //     .flex()
+        //     .child(checkered_background)
+        //     .child(
         div()
-            .track_focus(&self.focus_handle)
-            .size_full()
-            .child(checkered_background)
+            .debug_bg_blue()
+            .flex_1()
+            .relative()
+            .v_flex()
+            .justify_center()
+            .items_center()
+            .w_full()
+            .max_h_full()
+            // TODO: In browser based Tailwind & Flex this would be h-screen and we'd use w-full
+            // .h_screen()
+            // .h_full()
             .child(
-                div()
-                    .flex()
-                    .justify_center()
-                    .items_center()
-                    .w_full()
-                    // TODO: In browser based Tailwind & Flex this would be h-screen and we'd use w-full
-                    .h_full()
-                    .child(
-                        img(self.path.clone())
-                            .object_fit(ObjectFit::ScaleDown)
-                            .max_w_full()
-                            .max_h_full(),
-                    ),
+                img(self.path.clone())
+                    .debug_bg_yellow()
+                    .object_fit(ObjectFit::ScaleDown)
+                    .max_w_full()
+                    .max_h_full(),
             )
+        // )
     }
 }
 
