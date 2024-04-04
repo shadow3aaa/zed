@@ -1,12 +1,11 @@
 use anyhow::{anyhow, Context as _, Result};
 use collections::HashMap;
 use fs::Fs;
-use gpui::{
-    AppContext, BackgroundExecutor, Context, EventEmitter, Global, Model, ModelContext, Task,
-    WeakModel,
-};
+use futures::AsyncReadExt;
+use gpui::{AppContext, Context, EventEmitter, Global, Model, ModelContext, Task, WeakModel};
 use language::{LanguageRegistry, Tree, PARSER};
 use project::{Project, Worktree};
+use serde::{Deserialize, Serialize};
 use smol::channel;
 use std::{
     cmp,
@@ -15,6 +14,8 @@ use std::{
     sync::Arc,
 };
 use util::ResultExt;
+
+use util::http::{HttpClient, HttpClientWithUrl};
 
 pub struct SemanticIndex {
     db: lmdb::Database,
@@ -144,6 +145,25 @@ pub enum StatusEvent {
     Scanning,
 }
 
+#[derive(Serialize)]
+struct EmbeddingRequest {
+    model: String,
+    prompt: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct EmbeddingResponse {
+    embedding: Vec<f32>,
+}
+
+impl EmbeddingResponse {
+    fn to_normalized(&self) -> Vec<f32> {
+        let norm = self.embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+
+        self.embedding.iter().map(|x| x / norm).collect()
+    }
+}
+
 async fn index_path(
     path: PathBuf,
     language_registry: &Arc<LanguageRegistry>,
@@ -153,6 +173,7 @@ async fn index_path(
     // Read file contents
     // Parse with Tree Sitter
     // Walk the parse tree from the top to find nodes below our embedding threshold
+    // Embed the nodes we find
 
     let text = fs.load(&path).await?;
     let language = language_registry
@@ -170,11 +191,42 @@ async fn index_path(
 
         let chunks = chunk_parse_tree(tree, &text);
 
+        let client = HttpClientWithUrl::new("http://localhost:11434/");
+
+        let blue_bold = "\x1b[1;34m";
+        let reset = "\x1b[0m";
+
+        // Show the path
+        println!("\n{}{:?}{}\n", blue_bold, path, reset);
+
         for chunk in chunks {
-            println!(
-                "=====================================================================\n{}",
-                &text[chunk]
-            );
+            let request = EmbeddingRequest {
+                model: "nomic-embed-text".to_string(),
+                prompt: text[chunk].to_string(),
+            };
+
+            let request = serde_json::to_string(&request)?;
+            let mut response = client
+                .post_json("http://localhost:11434/api/embeddings", request.into())
+                .await
+                .context("failed to embed")?;
+
+            let mut body = Vec::new();
+            response.body_mut().read_to_end(&mut body).await.ok();
+
+            let response: EmbeddingResponse =
+                serde_json::from_slice(body.as_slice()).context("Unable to pull response")?;
+
+            let embedding = response.to_normalized();
+
+            println!("{:?}", embedding);
+
+            // println!(
+            //     "[{}, {}, ..., {}]",
+            //     response.embedding[0],
+            //     response.embedding[1],
+            //     response.embedding.last().unwrap()
+            // );
         }
     } else {
         return Err(anyhow!("plain text is not yet supported"));

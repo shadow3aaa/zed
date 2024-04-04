@@ -8559,6 +8559,8 @@ dependencies = [
  "languages",
  "lmdb",
  "project",
+ "serde",
+ "serde_json",
  "settings",
  "smol",
  "tempfile",
