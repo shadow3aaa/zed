@@ -220,6 +220,7 @@ zed = { path = "crates/zed" }
 zed_actions = { path = "crates/zed_actions" }
 
 anyhow = "1.0.57"
+arrow = "51.0.0"
 async-compression = { version = "0.4", features = ["gzip", "futures-io"] }
 async-fs = "1.6"
 async-recursion = "1.0.0"
@@ -255,6 +256,7 @@ itertools = "0.11.0"
 lazy_static = "1.4.0"
 linkify = "0.10.0"
 log = { version = "0.4.16", features = ["kv_unstable_serde"] }
+ndarray = { version = "0.15.6", features = ["serde"] }
 ordered-float = "2.1.1"
 palette = { version = "0.7.5", default-features = false, features = ["std"] }
 parking_lot = "0.12.1"

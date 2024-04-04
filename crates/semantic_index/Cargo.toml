@@ -10,12 +10,14 @@ path = "src/semantic_index.rs"
 
 [dependencies]
 anyhow.workspace = true
+arrow.workspace = true
 collections.workspace = true
 fs.workspace = true
 futures.workspace = true
 gpui.workspace = true
 language.workspace = true
 lmdb = "0.8.0"
+ndarray.workspace = true
 project.workspace = true
 settings.workspace = true
 serde.workspace = true

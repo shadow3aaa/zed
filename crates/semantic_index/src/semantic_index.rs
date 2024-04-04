@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context as _, Result};
+use arrow::array::Float32Array;
 use collections::HashMap;
 use fs::Fs;
 use futures::AsyncReadExt;
@@ -157,11 +158,21 @@ struct EmbeddingResponse {
 }
 
 impl EmbeddingResponse {
-    fn to_normalized(&self) -> Vec<f32> {
-        let norm = self.embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-
-        self.embedding.iter().map(|x| x / norm).collect()
+    fn to_normalized(&self) -> ndarray::Array1<f32> {
+        let array = ndarray::Array1::from(self.embedding.clone());
+        let norm = array.dot(&array).sqrt();
+        array / norm
     }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct EmbeddingMetadata {
+    file_path: String,
+    range: (usize, usize),
+    timestamp: i64,
+    language: String,
+    model_identifier: String,
+    tags: Vec<String>,
 }
 
 async fn index_path(
@@ -174,6 +185,8 @@ async fn index_path(
     // Parse with Tree Sitter
     // Walk the parse tree from the top to find nodes below our embedding threshold
     // Embed the nodes we find
+    // Normalize the embeddings to unit length
+    // Store the embeddings in the database with metadata
 
     let text = fs.load(&path).await?;
     let language = language_registry
@@ -220,13 +233,6 @@ async fn index_path(
             let embedding = response.to_normalized();
 
             println!("{:?}", embedding);
-
-            // println!(
-            //     "[{}, {}, ..., {}]",
-            //     response.embedding[0],
-            //     response.embedding[1],
-            //     response.embedding.last().unwrap()
-            // );
         }
     } else {
         return Err(anyhow!("plain text is not yet supported"));
