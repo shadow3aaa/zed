@@ -25,12 +25,12 @@ pub trait InlineCompletionProvider: 'static + Sized {
     );
     fn accept(&mut self, cx: &mut ModelContext<Self>);
     fn discard(&mut self, cx: &mut ModelContext<Self>);
-    fn active_completion_text(
-        &self,
-        buffer: &Model<Buffer>,
+    fn active_completion_text<'a>(
+        &'a self,
+        buffer: &'a Model<Buffer>,
         cursor_position: language::Anchor,
-        cx: &AppContext,
-    ) -> Option<&str>;
+        cx: &'a AppContext,
+    ) -> Option<&'a str>;
 }
 
 pub trait InlineCompletionProviderHandle {
@@ -57,8 +57,8 @@ pub trait InlineCompletionProviderHandle {
     fn accept(&self, cx: &mut AppContext);
     fn discard(&self, cx: &mut AppContext);
     fn active_completion_text<'a>(
-        &self,
-        buffer: &Model<Buffer>,
+        &'a self,
+        buffer: &'a Model<Buffer>,
         cursor_position: language::Anchor,
         cx: &'a AppContext,
     ) -> Option<&'a str>;
@@ -110,8 +110,8 @@ where
     }
 
     fn active_completion_text<'a>(
-        &self,
-        buffer: &Model<Buffer>,
+        &'a self,
+        buffer: &'a Model<Buffer>,
         cursor_position: language::Anchor,
         cx: &'a AppContext,
     ) -> Option<&'a str> {
