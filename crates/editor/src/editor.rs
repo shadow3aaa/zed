@@ -1713,22 +1713,19 @@ impl Editor {
         self.completion_provider = Some(hub);
     }
 
-    pub fn set_inline_completion_provider<T>(
+    pub fn set_inline_completion_provider(
         &mut self,
-        provider: Option<Model<T>>,
+        provider: Model<impl InlineCompletionProvider>,
         cx: &mut ViewContext<Self>,
-    ) where
-        T: InlineCompletionProvider,
-    {
-        self.inline_completion_provider =
-            provider.map(|provider| RegisteredInlineCompletionProvider {
-                _subscription: cx.observe(&provider, |this, _, cx| {
-                    if this.focus_handle.is_focused(cx) {
-                        this.update_visible_inline_completion(cx);
-                    }
-                }),
-                provider: Arc::new(provider),
-            });
+    ) {
+        self.inline_completion_provider = Some(RegisteredInlineCompletionProvider {
+            _subscription: cx.observe(&provider, |this, _, cx| {
+                if this.focus_handle.is_focused(cx) {
+                    this.update_visible_inline_completion(cx);
+                }
+            }),
+            provider: Arc::new(provider),
+        });
         self.refresh_inline_completion(false, cx);
     }
 
@@ -2634,7 +2631,7 @@ impl Editor {
             }
 
             drop(snapshot);
-            let had_active_inline_completion = this.has_active_inline_completion(cx);
+            let had_active_copilot_completion = this.has_active_inline_completion(cx);
             this.change_selections(Some(Autoscroll::fit()), cx, |s| s.select(new_selections));
 
             if brace_inserted {
@@ -2650,7 +2647,7 @@ impl Editor {
                 }
             }
 
-            if had_active_inline_completion {
+            if had_active_copilot_completion {
                 this.refresh_inline_completion(true, cx);
                 if !this.has_active_inline_completion(cx) {
                     this.trigger_completion_on_input(&text, cx);
@@ -3962,7 +3959,7 @@ impl Editor {
         if !self.show_inline_completions
             || !provider.is_enabled(&buffer, cursor_buffer_position, cx)
         {
-            self.discard_inline_completion(cx);
+            self.clear_inline_completion(cx);
             return None;
         }
 
@@ -4161,6 +4158,13 @@ impl Editor {
             }
         }
 
+        self.discard_inline_completion(cx);
+    }
+
+    fn clear_inline_completion(&mut self, cx: &mut ViewContext<Self>) {
+        if let Some(old_completion) = self.active_inline_completion.take() {
+            self.splice_inlays(vec![old_completion.id], Vec::new(), cx);
+        }
         self.discard_inline_completion(cx);
     }
 
@@ -9801,14 +9805,12 @@ impl Editor {
             .raw_user_settings()
             .get("vim_mode")
             == Some(&serde_json::Value::Bool(true));
-
-        let copilot_enabled = all_language_settings(file, cx).inline_completions.provider
-            == language::language_settings::InlineCompletionProvider::Copilot;
+        let copilot_enabled = all_language_settings(file, cx).copilot_enabled(None, None);
         let copilot_enabled_for_language = self
             .buffer
             .read(cx)
             .settings_at(0, cx)
-            .show_inline_completions;
+            .show_copilot_suggestions;
 
         let telemetry = project.read(cx).client().telemetry().clone();
         telemetry.report_editor_event(

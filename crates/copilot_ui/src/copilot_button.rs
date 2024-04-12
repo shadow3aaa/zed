@@ -8,9 +8,7 @@ use gpui::{
     Render, Subscription, View, ViewContext, WeakView, WindowContext,
 };
 use language::{
-    language_settings::{
-        self, all_language_settings, AllLanguageSettings, InlineCompletionProvider,
-    },
+    language_settings::{self, all_language_settings, AllLanguageSettings},
     File, Language,
 };
 use settings::{update_settings_file, Settings, SettingsStore};
@@ -44,7 +42,7 @@ pub struct CopilotButton {
 impl Render for CopilotButton {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let all_language_settings = all_language_settings(None, cx);
-        if all_language_settings.inline_completions.provider != InlineCompletionProvider::Copilot {
+        if !all_language_settings.copilot.feature_enabled {
             return div();
         }
 
@@ -55,7 +53,7 @@ impl Render for CopilotButton {
 
         let enabled = self
             .editor_enabled
-            .unwrap_or_else(|| all_language_settings.inline_completions_enabled(None, None));
+            .unwrap_or_else(|| all_language_settings.copilot_enabled(None, None));
 
         let icon = match status {
             Status::Error(_) => IconName::CopilotError,
@@ -159,18 +157,16 @@ impl CopilotButton {
                 let fs = fs.clone();
                 let language_enabled =
                     language_settings::language_settings(Some(&language), None, cx)
-                        .show_inline_completions;
+                        .show_copilot_suggestions;
 
                 menu = menu.entry(
                     format!(
-                        "{} Inline Completions for {}",
+                        "{} Suggestions for {}",
                         if language_enabled { "Hide" } else { "Show" },
                         language.name()
                     ),
                     None,
-                    move |cx| {
-                        toggle_inline_completions_for_language(language.clone(), fs.clone(), cx)
-                    },
+                    move |cx| toggle_copilot_for_language(language.clone(), fs.clone(), cx),
                 );
             }
 
@@ -178,11 +174,11 @@ impl CopilotButton {
 
             if let Some(file) = &self.file {
                 let path = file.path().clone();
-                let path_enabled = settings.inline_completions_enabled_for_path(&path);
+                let path_enabled = settings.copilot_enabled_for_path(&path);
 
                 menu = menu.entry(
                     format!(
-                        "{} Inline Completions for This Path",
+                        "{} Suggestions for This Path",
                         if path_enabled { "Hide" } else { "Show" }
                     ),
                     None,
@@ -204,15 +200,15 @@ impl CopilotButton {
                 );
             }
 
-            let globally_enabled = settings.inline_completions_enabled(None, None);
+            let globally_enabled = settings.copilot_enabled(None, None);
             menu.entry(
                 if globally_enabled {
-                    "Hide Inline Completions for All Files"
+                    "Hide Suggestions for All Files"
                 } else {
-                    "Show Inline Completions for All Files"
+                    "Show Suggestions for All Files"
                 },
                 None,
-                move |cx| toggle_inline_completions_globally(fs.clone(), cx),
+                move |cx| toggle_copilot_globally(fs.clone(), cx),
             )
             .separator()
             .link(
@@ -236,10 +232,8 @@ impl CopilotButton {
             let file = file.as_ref();
             Some(
                 file.map(|file| !file.is_private()).unwrap_or(true)
-                    && all_language_settings(file, cx).inline_completions_enabled(
-                        language,
-                        file.map(|file| file.path().as_ref()),
-                    ),
+                    && all_language_settings(file, cx)
+                        .copilot_enabled(language, file.map(|file| file.path().as_ref())),
             )
         };
         self.language = language.cloned();
@@ -286,11 +280,11 @@ async fn configure_disabled_globs(
 
         let settings = cx.global::<SettingsStore>();
         let edits = settings.edits_for_update::<AllLanguageSettings>(&text, |file| {
-            let copilot = file.inline_completions.get_or_insert_with(Default::default);
+            let copilot = file.copilot.get_or_insert_with(Default::default);
             let globs = copilot.disabled_globs.get_or_insert_with(|| {
                 settings
                     .get::<AllLanguageSettings>(None)
-                    .inline_completions
+                    .copilot
                     .disabled_globs
                     .iter()
                     .map(|glob| glob.glob().to_string())
@@ -319,26 +313,21 @@ async fn configure_disabled_globs(
     anyhow::Ok(())
 }
 
-fn toggle_inline_completions_globally(fs: Arc<dyn Fs>, cx: &mut AppContext) {
-    let show_inline_completions =
-        all_language_settings(None, cx).inline_completions_enabled(None, None);
+fn toggle_copilot_globally(fs: Arc<dyn Fs>, cx: &mut AppContext) {
+    let show_copilot_suggestions = all_language_settings(None, cx).copilot_enabled(None, None);
     update_settings_file::<AllLanguageSettings>(fs, cx, move |file| {
-        file.defaults.show_inline_completions = Some(!show_inline_completions)
+        file.defaults.show_copilot_suggestions = Some(!show_copilot_suggestions)
     });
 }
 
-fn toggle_inline_completions_for_language(
-    language: Arc<Language>,
-    fs: Arc<dyn Fs>,
-    cx: &mut AppContext,
-) {
-    let show_inline_completions =
-        all_language_settings(None, cx).inline_completions_enabled(Some(&language), None);
+fn toggle_copilot_for_language(language: Arc<Language>, fs: Arc<dyn Fs>, cx: &mut AppContext) {
+    let show_copilot_suggestions =
+        all_language_settings(None, cx).copilot_enabled(Some(&language), None);
     update_settings_file::<AllLanguageSettings>(fs, cx, move |file| {
         file.languages
             .entry(language.name())
             .or_default()
-            .show_inline_completions = Some(!show_inline_completions);
+            .show_copilot_suggestions = Some(!show_copilot_suggestions);
     });
 }
 

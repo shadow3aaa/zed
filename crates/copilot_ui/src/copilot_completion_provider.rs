@@ -3,7 +3,9 @@ use client::telemetry::Telemetry;
 use copilot::Copilot;
 use editor::{Direction, InlineCompletionProvider};
 use gpui::{AppContext, EntityId, Model, ModelContext, Task};
+use language::language_settings::AllLanguageSettings;
 use language::{language_settings::all_language_settings, Buffer, OffsetRangeExt, ToOffset};
+use settings::Settings;
 use std::{path::Path, sync::Arc, time::Duration};
 
 pub const COPILOT_DEBOUNCE_TIMEOUT: Duration = Duration::from_millis(75);
@@ -69,7 +71,7 @@ impl InlineCompletionProvider for CopilotCompletionProvider {
         let file = buffer.file();
         let language = buffer.language_at(cursor_position);
         let settings = all_language_settings(file, cx);
-        settings.inline_completions_enabled(language.as_ref(), file.map(|f| f.path().as_ref()))
+        settings.copilot_enabled(language.as_ref(), file.map(|f| f.path().as_ref()))
     }
 
     fn refresh(
@@ -296,9 +298,7 @@ mod tests {
         )
         .await;
         let copilot_provider = cx.new_model(|_| CopilotCompletionProvider::new(copilot));
-        cx.update_editor(|editor, cx| {
-            editor.set_inline_completion_provider(Some(copilot_provider), cx)
-        });
+        cx.update_editor(|editor, cx| editor.set_inline_completion_provider(copilot_provider, cx));
 
         // When inserting, ensure autocompletion is favored over Copilot suggestions.
         cx.set_state(indoc! {"
@@ -553,9 +553,7 @@ mod tests {
         )
         .await;
         let copilot_provider = cx.new_model(|_| CopilotCompletionProvider::new(copilot));
-        cx.update_editor(|editor, cx| {
-            editor.set_inline_completion_provider(Some(copilot_provider), cx)
-        });
+        cx.update_editor(|editor, cx| editor.set_inline_completion_provider(copilot_provider, cx));
 
         // Setup the editor with a completion request.
         cx.set_state(indoc! {"
@@ -677,9 +675,7 @@ mod tests {
         )
         .await;
         let copilot_provider = cx.new_model(|_| CopilotCompletionProvider::new(copilot));
-        cx.update_editor(|editor, cx| {
-            editor.set_inline_completion_provider(Some(copilot_provider), cx)
-        });
+        cx.update_editor(|editor, cx| editor.set_inline_completion_provider(copilot_provider, cx));
 
         cx.set_state(indoc! {"
             one
@@ -760,7 +756,7 @@ mod tests {
         let copilot_provider = cx.new_model(|_| CopilotCompletionProvider::new(copilot));
         editor
             .update(cx, |editor, cx| {
-                editor.set_inline_completion_provider(Some(copilot_provider), cx)
+                editor.set_inline_completion_provider(copilot_provider, cx)
             })
             .unwrap();
 
@@ -837,7 +833,7 @@ mod tests {
     async fn test_copilot_disabled_globs(executor: BackgroundExecutor, cx: &mut TestAppContext) {
         init_test(cx, |settings| {
             settings
-                .inline_completions
+                .copilot
                 .get_or_insert(Default::default())
                 .disabled_globs = Some(vec![".env*".to_string()]);
         });
@@ -892,7 +888,7 @@ mod tests {
         let copilot_provider = cx.new_model(|_| CopilotCompletionProvider::new(copilot));
         editor
             .update(cx, |editor, cx| {
-                editor.set_inline_completion_provider(Some(copilot_provider), cx)
+                editor.set_inline_completion_provider(copilot_provider, cx)
             })
             .unwrap();
 

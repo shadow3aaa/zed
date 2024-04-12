@@ -1,5 +1,4 @@
 mod app_menus;
-pub mod inline_completion_registry;
 mod only_instance;
 mod open_listener;
 
