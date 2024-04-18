@@ -1865,17 +1865,37 @@ message CompleteWithLanguageModel {
 message LanguageModelRequestMessage {
     LanguageModelRole role = 1;
     string content = 2;
+    optional ToolCall tool_call = 3;
+}
+
+message ToolCall {
+    string id = 1;
+    string type = 2;
+    FunctionCall function = 3;
+}
+
+message FunctionCall {
+    string name = 1;
+    string arguments = 2;
 }
 
 enum LanguageModelRole {
     LanguageModelUser = 0;
     LanguageModelAssistant = 1;
     LanguageModelSystem = 2;
+    LanguageModelTool = 3;
+    LanguageModelFunction = 4;
 }
 
 message LanguageModelResponseMessage {
     optional LanguageModelRole role = 1;
     optional string content = 2;
+}
+
+message ToolResult {
+    string tool_call_id = 1;
+    string content = 2;
+    string name = 3;
 }
 
 message LanguageModelResponse {
