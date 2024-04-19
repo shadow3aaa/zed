@@ -14,6 +14,9 @@ use client::{parse_zed_link, telemetry::Telemetry, Client, DevServerToken, UserS
 use collab_ui::channel_view::ChannelView;
 use copilot::Copilot;
 use copilot_ui::CopilotCompletionProvider;
+
+use supermaven::SupermavenCompletionProvider;
+
 use db::kvp::KEY_VALUE_STORE;
 use editor::{Editor, EditorMode};
 use env_logger::Builder;
@@ -1219,10 +1222,15 @@ fn init_inline_completion_provider(telemetry: Arc<Telemetry>, cx: &mut AppContex
                         },
                     ));
 
+                // todo!(): Settings for switching out the completion provider
                 let provider = cx.new_model(|_| {
-                    CopilotCompletionProvider::new(copilot.clone())
-                        .with_telemetry(telemetry.clone())
+                    SupermavenCompletionProvider::new()
                 });
+
+                // let provider = cx.new_model(|_| {
+                //     CopilotCompletionProvider::new(copilot.clone())
+                //         .with_telemetry(telemetry.clone())
+                // });
                 editor.set_inline_completion_provider(provider, cx)
             }
         })

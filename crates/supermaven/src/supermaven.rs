@@ -25,27 +25,23 @@ use util::ResultExt;
 pub fn init(cx: &mut AppContext) {
     cx.set_global(Supermaven::Disabled);
 
-    todo!("initialize");
+    let mut provider = all_language_settings(None, cx).inline_completions.provider;
+    if provider == language::language_settings::InlineCompletionProvider::Supermaven {
+        Supermaven::update(cx, |supermaven, cx| supermaven.start(cx));
+    }
 
-    // Old API before we migrated to a new InlineCompletionProvider setup
-    //
-    // let mut provider = all_language_settings(None, cx).inline_completions.provider;
-    // if provider == language::language_settings::InlineCompletionProvider::Supermaven {
-    //     Supermaven::update(cx, |supermaven, cx| supermaven.start(cx));
-    // }
-
-    // cx.observe_global::<SettingsStore>(move |cx| {
-    //     let new_provider = all_language_settings(None, cx).inline_completions.provider;
-    //     if new_provider != provider {
-    //         provider = new_provider;
-    //         if provider == language::language_settings::InlineCompletionProvider::Supermaven {
-    //             Supermaven::update(cx, |supermaven, cx| supermaven.start(cx));
-    //         } else {
-    //             Supermaven::update(cx, |supermaven, _cx| supermaven.stop());
-    //         }
-    //     }
-    // })
-    // .detach();
+    cx.observe_global::<SettingsStore>(move |cx| {
+        let new_provider = all_language_settings(None, cx).inline_completions.provider;
+        if new_provider != provider {
+            provider = new_provider;
+            if provider == language::language_settings::InlineCompletionProvider::Supermaven {
+                Supermaven::update(cx, |supermaven, cx| supermaven.start(cx));
+            } else {
+                Supermaven::update(cx, |supermaven, _cx| supermaven.stop());
+            }
+        }
+    })
+    .detach();
 }
 
 pub enum Supermaven {
