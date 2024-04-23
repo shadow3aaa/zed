@@ -9599,6 +9599,7 @@ dependencies = [
  "futures 0.3.28",
  "gpui",
  "language",
+ "log",
  "postage",
  "project",
  "serde",
