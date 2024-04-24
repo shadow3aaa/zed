@@ -1538,6 +1538,7 @@ impl EditorElement {
             .partition::<Vec<_>, _>(|(_, block)| match block {
                 TransformBlock::ExcerptHeader { .. } => false,
                 TransformBlock::Custom(block) => block.style() == BlockStyle::Fixed,
+                TransformBlock::ExcerptFooter { .. } => false,
             });
 
         let render_block = |block: &TransformBlock,
@@ -1646,7 +1647,7 @@ impl EditorElement {
                         }
 
                         v_flex()
-                            .id(("path header container", block_id))
+                            .id(("path excerpt header", block_id))
                             .size_full()
                             .justify_center()
                             .p(gpui::px(6.))
@@ -1708,7 +1709,7 @@ impl EditorElement {
                             )
                     } else {
                         v_flex()
-                            .id(("collapsed context", block_id))
+                            .id(("excerpt header", block_id))
                             .size_full()
                             .child(
                                 div()
@@ -1732,9 +1733,7 @@ impl EditorElement {
                                 h_flex()
                                     .justify_end()
                                     .flex_none()
-                                    .w(
-                                        gutter_dimensions.width - (gutter_dimensions.left_padding), // + gutter_dimensions.right_padding)
-                                    )
+                                    .w(gutter_dimensions.width - (gutter_dimensions.left_padding))
                                     .h_full()
                                     .child(
                                         ButtonLike::new("expand-icon")
@@ -1804,6 +1803,48 @@ impl EditorElement {
                     };
                     element.into_any()
                 }
+
+                TransformBlock::ExcerptFooter { id, .. } => {
+                    let element = v_flex().id(("excerpt footer", block_id)).size_full().child(
+                        h_flex()
+                            .justify_end()
+                            .flex_none()
+                            .w(gutter_dimensions.width - (gutter_dimensions.left_padding))
+                            .h_full()
+                            .child(
+                                ButtonLike::new("expand-icon")
+                                    .style(ButtonStyle::Transparent)
+                                    .child(
+                                        svg()
+                                            .path(IconName::ExpandVertical.path())
+                                            .size(IconSize::XSmall.rems())
+                                            .text_color(cx.theme().colors().editor_line_number)
+                                            .group("")
+                                            .hover(|style| {
+                                                style.text_color(
+                                                    cx.theme().colors().editor_active_line_number,
+                                                )
+                                            }),
+                                    )
+                                    .on_click(cx.listener_for(&self.editor, {
+                                        let id = *id;
+                                        move |editor, _, cx| {
+                                            editor.expand_excerpt(id, cx);
+                                        }
+                                    }))
+                                    .tooltip({
+                                        move |cx| {
+                                            Tooltip::for_action(
+                                                "Expand Excerpt",
+                                                &ExpandExcerpts { lines: 0 },
+                                                cx,
+                                            )
+                                        }
+                                    }),
+                            ),
+                    );
+                    element.into_any()
+                }
             };
 
             let size = element.layout_as_root(available_space, cx);
@@ -1831,6 +1872,7 @@ impl EditorElement {
             let style = match block {
                 TransformBlock::Custom(block) => block.style(),
                 TransformBlock::ExcerptHeader { .. } => BlockStyle::Sticky,
+                TransformBlock::ExcerptFooter { .. } => BlockStyle::Sticky,
             };
             let width = match style {
                 BlockStyle::Sticky => hitbox.size.width,
