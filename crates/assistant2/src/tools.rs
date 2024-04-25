@@ -1,6 +1,6 @@
 use anyhow::Result;
 use assistant_tooling::{tool::ToolView, LanguageModelTool};
-use gpui::{prelude::*, AppContext, Model, Task};
+use gpui::{prelude::*, Model, Task};
 use project::Fs;
 use schemars::JsonSchema;
 use semantic_index::ProjectIndex;
@@ -26,7 +26,7 @@ pub struct CodebaseExcerpt {
 // Note: Comments on a `LanguageModelTool::Input` become descriptions on the generated JSON schema as shown to the language model.
 // Any changes or deletions to the `CodebaseQuery` comments will change model behavior.
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Deserialize, JsonSchema, Clone)]
 pub struct CodebaseQuery {
     /// Semantic search query
     query: String,
@@ -36,19 +36,18 @@ pub struct CodebaseQuery {
 
 pub struct ProjectIndexView {
     input: CodebaseQuery,
-    output: Result<Vec<CodebaseExcerpt>>,
+    output: Vec<CodebaseExcerpt>,
 }
 
 impl ProjectIndexView {
     fn toggle_expanded(&mut self, element_id: ElementId, cx: &mut ViewContext<Self>) {
-        if let Ok(excerpts) = &mut self.output {
-            if let Some(excerpt) = excerpts
-                .iter_mut()
-                .find(|excerpt| excerpt.element_id == element_id)
-            {
-                excerpt.expanded = !excerpt.expanded;
-                cx.notify();
-            }
+        if let Some(excerpt) = &mut self
+            .output
+            .iter_mut()
+            .find(|excerpt| excerpt.element_id == element_id)
+        {
+            excerpt.expanded = !excerpt.expanded;
+            cx.notify();
         }
     }
 }
@@ -56,15 +55,6 @@ impl ProjectIndexView {
 impl Render for ProjectIndexView {
     fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
         let query = self.input.query.clone();
-
-        let result = &self.output;
-
-        let excerpts = match result {
-            Err(err) => {
-                return div().child(Label::new(format!("Error: {}", err)).color(Color::Error));
-            }
-            Ok(excerpts) => excerpts,
-        };
 
         div()
             .v_flex()
@@ -80,7 +70,7 @@ impl Render for ProjectIndexView {
                             .child(Label::new(query).color(Color::Muted)),
                     ),
             )
-            .children(excerpts.iter().map(|excerpt| {
+            .children(self.output.iter().map(|excerpt| {
                 let element_id = excerpt.element_id.clone();
                 let expanded = excerpt.expanded;
 
@@ -109,28 +99,23 @@ impl Render for ProjectIndexView {
 
 impl ToolView for ProjectIndexView {
     fn format(&mut self, _cx: &mut ViewContext<Self>) -> String {
-        match &self.output {
-            Ok(excerpts) => {
-                if excerpts.len() == 0 {
-                    return "No results found".to_string();
-                }
-
-                let mut body = "Semantic search results:\n".to_string();
-
-                for excerpt in excerpts {
-                    body.push_str("Excerpt from ");
-                    body.push_str(excerpt.path.as_ref());
-                    body.push_str(", score ");
-                    body.push_str(&excerpt.score.to_string());
-                    body.push_str(":\n");
-                    body.push_str("~~~\n");
-                    body.push_str(excerpt.text.as_ref());
-                    body.push_str("~~~\n");
-                }
-                body
-            }
-            Err(err) => format!("Error: {}", err),
+        if self.output.len() == 0 {
+            return "No results found".to_string();
         }
+
+        let mut body = "Semantic search results:\n".to_string();
+
+        for excerpt in &self.output {
+            body.push_str("Excerpt from ");
+            body.push_str(excerpt.path.as_ref());
+            body.push_str(", score ");
+            body.push_str(&excerpt.score.to_string());
+            body.push_str(":\n");
+            body.push_str("~~~\n");
+            body.push_str(excerpt.text.as_ref());
+            body.push_str("~~~\n");
+        }
+        body
     }
 }
 
@@ -159,7 +144,11 @@ impl LanguageModelTool for ProjectIndexTool {
         "Semantic search against the user's current codebase, returning excerpts related to the query by computing a dot product against embeddings of chunks and an embedding of the query".to_string()
     }
 
-    fn execute(&self, query: &Self::Input, cx: &AppContext) -> Task<Result<Self::Output>> {
+    fn execute(
+        &self,
+        query: &Self::Input,
+        cx: &mut WindowContext,
+    ) -> Task<Result<gpui::View<Self::View>>> {
         let project_index = self.project_index.read(cx);
 
         let results = project_index.search(
@@ -170,7 +159,9 @@ impl LanguageModelTool for ProjectIndexTool {
 
         let fs = self.fs.clone();
 
-        cx.spawn(|cx| async move {
+        let query = query.clone();
+
+        cx.spawn(|mut cx| async move {
             let results = results.await;
 
             let excerpts = results.into_iter().map(|result| {
@@ -207,16 +198,13 @@ impl LanguageModelTool for ProjectIndexTool {
                 .into_iter()
                 .filter_map(|result| result.log_err())
                 .collect();
-            anyhow::Ok(excerpts)
-        })
-    }
 
-    fn new_view(
-        _tool_call_id: String,
-        input: Self::Input,
-        output: Result<Self::Output>,
-        cx: &mut WindowContext,
-    ) -> gpui::View<Self::View> {
-        cx.new_view(|_cx| ProjectIndexView { input, output })
+            cx.update(|cx| {
+                cx.new_view(|_cx| ProjectIndexView {
+                    input: query.clone(),
+                    output: excerpts,
+                })
+            })
+        })
     }
 }

@@ -1,8 +1,4 @@
-use anyhow::Result;
-use gpui::{
-    AnyElement, AnyView, AppContext, IntoElement as _, Render, Task, View, ViewContext,
-    WindowContext,
-};
+use gpui::{AnyElement, AnyView, IntoElement as _, Render, Task, View, ViewContext, WindowContext};
 use schemars::{schema::RootSchema, schema_for, JsonSchema};
 use serde::Deserialize;
 use std::fmt::Display;
@@ -49,8 +45,9 @@ impl ToolFunctionCallResult {
     }
 }
 
-pub trait ToolView: Render {
+pub trait ToolView<Input: for<'de> Deserialize<'de> + JsonSchema, Output: 'static>: Render {
     fn format(&mut self, cx: &mut ViewContext<Self>) -> String;
+    fn new(input: Input, output: Option<Output>) -> Self;
 }
 
 pub trait AnyToolView {
@@ -58,7 +55,7 @@ pub trait AnyToolView {
     fn to_view(&self) -> AnyView;
 }
 
-impl<V: ToolView> AnyToolView for View<V> {
+impl<V: ToolView<I, O>> AnyToolView for View<V> {
     fn format(&self, cx: &mut WindowContext) -> String {
         self.update(cx, |this, cx| this.format(cx))
     }
@@ -116,12 +113,9 @@ pub trait LanguageModelTool {
     }
 
     /// Execute the tool
-    fn execute(&self, input: &Self::Input, cx: &AppContext) -> Task<Result<Self::Output>>;
-
-    fn new_view(
-        tool_call_id: String,
-        input: Self::Input,
-        output: Result<Self::Output>,
+    fn execute(
+        &self,
+        input: &Self::Input,
         cx: &mut WindowContext,
-    ) -> View<Self::View>;
+    ) -> Task<anyhow::Result<gpui::View<Self::View>>>;
 }

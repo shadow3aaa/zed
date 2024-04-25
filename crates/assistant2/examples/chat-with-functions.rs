@@ -79,26 +79,15 @@ impl DieRoll {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-struct DiceRoll {
-    rolls: Vec<DieRoll>,
-}
-
 pub struct DiceView {
-    result: Result<DiceRoll>,
+    rolls: Vec<DieRoll>,
 }
 
 impl Render for DiceView {
     fn render(&mut self, _cx: &mut ViewContext<Self>) -> impl IntoElement {
-        let output = match &self.result {
-            Ok(output) => output,
-            Err(_) => return "Somehow dice failed 🎲".into_any_element(),
-        };
-
         h_flex()
             .children(
-                output
-                    .rolls
+                self.rolls
                     .iter()
                     .map(|roll| div().p_2().child(roll.render())),
             )
@@ -108,13 +97,8 @@ impl Render for DiceView {
 
 impl ToolView for DiceView {
     fn format(&mut self, _cx: &mut ViewContext<Self>) -> String {
-        let output = match &self.result {
-            Ok(output) => output,
-            Err(_) => return "Somehow dice failed 🎲".to_string(),
-        };
-
         let mut result = String::new();
-        for roll in &output.rolls {
+        for roll in &self.rolls {
             let die = &roll.die;
             result.push_str(&format!("{}: {}\n", die.into_str(), roll.roll));
         }
@@ -124,7 +108,7 @@ impl ToolView for DiceView {
 
 impl LanguageModelTool for RollDiceTool {
     type Input = DiceParams;
-    type Output = DiceRoll;
+    type Output = Vec<DieRoll>;
     type View = DiceView;
 
     fn name(&self) -> String {
@@ -135,7 +119,11 @@ impl LanguageModelTool for RollDiceTool {
         "Rolls N many dice and returns the results.".to_string()
     }
 
-    fn execute(&self, input: &Self::Input, _cx: &AppContext) -> Task<gpui::Result<Self::Output>> {
+    fn execute(
+        &self,
+        input: &Self::Input,
+        cx: &mut WindowContext,
+    ) -> Task<anyhow::Result<gpui::View<Self::View>>> {
         let rolls = (0..input.num_dice)
             .map(|_| {
                 let die_type = input.die_type.as_ref().unwrap_or(&Die::D6).clone();
@@ -147,16 +135,7 @@ impl LanguageModelTool for RollDiceTool {
             })
             .collect();
 
-        return Task::ready(Ok(DiceRoll { rolls }));
-    }
-
-    fn new_view(
-        _tool_call_id: String,
-        _input: Self::Input,
-        result: Result<Self::Output>,
-        cx: &mut WindowContext,
-    ) -> gpui::View<Self::View> {
-        cx.new_view(|_cx| DiceView { result })
+        Task::ready(Ok(cx.new_view(|_| DiceView { rolls })))
     }
 }
 
