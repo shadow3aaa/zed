@@ -9621,6 +9621,7 @@ dependencies = [
  "futures 0.3.28",
  "serde",
  "serde_json",
+ "smol",
  "util",
 ]
 
