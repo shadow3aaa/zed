@@ -238,7 +238,8 @@ message Envelope {
         ValidateRemoteProjectRequest validate_remote_project_request = 194;
         DeleteDevServer delete_dev_server = 195;
         OpenNewBuffer open_new_buffer = 196;
-        GetSupermavenAPIKey get_supermaven_api_key = 197; // current max
+        GetSupermavenApiKey get_supermaven_api_key = 197;
+        GetSupermavenApiKeyResponse get_supermaven_api_key_response = 198; // current max
     }
 
     reserved 158 to 161;
@@ -2074,4 +2075,8 @@ message LspResponse {
     }
 }
 
-message GetSupermavenAPIKey {}
+message GetSupermavenApiKey {}
+
+message GetSupermavenApiKeyResponse {
+    string api_key = 1;
+}
