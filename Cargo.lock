@@ -9619,7 +9619,6 @@ dependencies = [
  "theme",
  "ui",
  "util",
- "workspace",
 ]
 
 [[package]]
