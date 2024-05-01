@@ -363,7 +363,7 @@ async fn test_create_remote_project_path_validation(
     let error = result.unwrap_err();
     assert!(matches!(
         error.error_code(),
-        ErrorCode::RemoteProjectPathDoesNotExist
+        ErrorCode::DevServerProjectPathDoesNotExist
     ));
 }
 

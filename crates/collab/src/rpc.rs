@@ -4,9 +4,9 @@ use crate::{
     auth,
     db::{
         self, dev_server, BufferId, Capability, Channel, ChannelId, ChannelRole, ChannelsForUser,
-        CreatedChannelMessage, Database, DevServerId, InviteMemberResult, MembershipUpdated,
-        MessageId, NotificationId, PrincipalId, Project, ProjectId, RejoinedProject,
-        RemoteProjectId, RemoveChannelMemberResult, ReplicaId, RespondToChannelInvite, RoomId,
+        CreatedChannelMessage, Database, DevServerId, DevServerProjectId, InviteMemberResult,
+        MembershipUpdated, MessageId, NotificationId, PrincipalId, Project, ProjectId,
+        RejoinedProject, RemoveChannelMemberResult, ReplicaId, RespondToChannelInvite, RoomId,
         ServerId, UpdatedChannelMessage, User, UserId,
     },
     executor::Executor,
@@ -1970,8 +1970,8 @@ async fn share_project(
             session.connection_id,
             &request.worktrees,
             request
-                .remote_project_id
-                .map(|id| RemoteProjectId::from_proto(id)),
+                .dev_server_project_id
+                .map(|id| DevServerProjectId::from_proto(id)),
         )
         .await?;
     response.send(proto::ShareProjectResponse {
@@ -2024,15 +2024,15 @@ async fn unshare_project_internal(
 
 /// DevServer makes a project available online
 async fn share_remote_project(
-    request: proto::ShareRemoteProject,
-    response: Response<proto::ShareRemoteProject>,
+    request: proto::ShareDevServerProject,
+    response: Response<proto::ShareDevServerProject>,
     session: DevServerSession,
 ) -> Result<()> {
     let (remote_project, user_id, status) = session
         .db()
         .await
-        .share_remote_project(
-            RemoteProjectId::from_proto(request.remote_project_id),
+        .share_dev_server_project(
+            DevServerProjectId::from_proto(request.dev_server_project_id),
             session.dev_server_id(),
             session.connection_id,
             &request.worktrees,
@@ -2135,9 +2135,9 @@ fn join_project_internal(
         collaborators: collaborators.clone(),
         language_servers: project.language_servers.clone(),
         role: project.role.into(),
-        remote_project_id: project
-            .remote_project_id
-            .map(|remote_project_id| remote_project_id.0 as u64),
+        dev_server_project_id: project
+            .dev_server_project_id
+            .map(|dev_server_project_id| dev_server_project_id.0 as u64),
     })?;
 
     for (worktree_id, worktree) in mem::take(&mut project.worktrees) {
@@ -2250,8 +2250,8 @@ async fn join_hosted_project(
 }
 
 async fn create_remote_project(
-    request: proto::CreateRemoteProject,
-    response: Response<proto::CreateRemoteProject>,
+    request: proto::CreateDevServerProject,
+    response: Response<proto::CreateDevServerProject>,
     session: UserSession,
 ) -> Result<()> {
     let dev_server_id = DevServerId(request.dev_server_id as i32);
@@ -2272,7 +2272,7 @@ async fn create_remote_project(
         .forward_request(
             session.connection_id,
             dev_server_connection_id,
-            proto::ValidateRemoteProjectRequest { path: path.clone() },
+            proto::ValidateDevServerProjectRequest { path: path.clone() },
         )
         .await?;
 
@@ -2299,7 +2299,7 @@ async fn create_remote_project(
 
     send_remote_projects_update(session.user_id(), update, &session).await;
 
-    response.send(proto::CreateRemoteProjectResponse {
+    response.send(proto::CreateDevServerProjectResponse {
         remote_project: Some(remote_project.to_proto(None)),
     })?;
     Ok(())
@@ -4910,7 +4910,7 @@ fn channel_updated(
 
 async fn send_remote_projects_update(
     user_id: UserId,
-    mut status: proto::RemoteProjectsUpdate,
+    mut status: proto::DevServerProjectsUpdate,
     session: &Session,
 ) {
     let pool = session.connection_pool().await;

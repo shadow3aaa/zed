@@ -6,7 +6,7 @@ use gpui::{
     EventEmitter, FocusHandle, FocusableView, Model, ScrollHandle, Transformation, View,
     ViewContext,
 };
-use remote_projects::{DevServer, DevServerId, RemoteProject, RemoteProjectId};
+use remote_projects::{DevServer, DevServerId, DevServerProject, DevServerProjectId};
 use rpc::{
     proto::{self, CreateDevServerResponse, DevServerStatus},
     ErrorCode, ErrorExt,
@@ -36,15 +36,15 @@ struct CreateDevServer {
     dev_server: Option<CreateDevServerResponse>,
 }
 
-struct CreateRemoteProject {
+struct CreateDevServerProject {
     dev_server_id: DevServerId,
     creating: bool,
-    remote_project: Option<proto::RemoteProject>,
+    remote_project: Option<proto::DevServerProject>,
 }
 
 enum Mode {
     Default,
-    CreateRemoteProject(CreateRemoteProject),
+    CreateDevServerProject(CreateDevServerProject),
     CreateDevServer(CreateDevServer),
 }
 
@@ -135,7 +135,7 @@ impl RemoteProjects {
             let result = create.await;
             let remote_project = result.as_ref().ok().and_then(|r| r.remote_project.clone());
             this.update(&mut cx, |this, _| {
-                this.mode = Mode::CreateRemoteProject(CreateRemoteProject {
+                this.mode = Mode::CreateDevServerProject(CreateDevServerProject {
                     dev_server_id,
                     creating: false,
                     remote_project,
@@ -150,7 +150,7 @@ impl RemoteProjects {
                     "The dev server is offline. Please log in and check it is connected."
                         .to_string(),
                 ),
-                ErrorCode::RemoteProjectPathDoesNotExist => {
+                ErrorCode::DevServerProjectPathDoesNotExist => {
                     Some(format!("The path `{}` does not exist on the server.", path))
                 }
                 _ => None,
@@ -163,7 +163,7 @@ impl RemoteProjects {
             });
         });
 
-        self.mode = Mode::CreateRemoteProject(CreateRemoteProject {
+        self.mode = Mode::CreateDevServerProject(CreateDevServerProject {
             dev_server_id,
             creating: true,
             remote_project: None,
@@ -241,7 +241,7 @@ impl RemoteProjects {
     fn confirm(&mut self, _: &menu::Confirm, cx: &mut ViewContext<Self>) {
         match self.mode {
             Mode::Default => {}
-            Mode::CreateRemoteProject(CreateRemoteProject { dev_server_id, .. }) => {
+            Mode::CreateDevServerProject(CreateDevServerProject { dev_server_id, .. }) => {
                 self.create_remote_project(dev_server_id, cx);
             }
             Mode::CreateDevServer(_) => {
@@ -253,7 +253,7 @@ impl RemoteProjects {
     fn cancel(&mut self, _: &menu::Cancel, cx: &mut ViewContext<Self>) {
         match self.mode {
             Mode::Default => cx.emit(DismissEvent),
-            Mode::CreateRemoteProject(_) | Mode::CreateDevServer(_) => {
+            Mode::CreateDevServerProject(_) | Mode::CreateDevServer(_) => {
                 self.mode = Mode::Default;
                 self.focus_handle(cx).focus(cx);
                 cx.notify();
@@ -332,11 +332,12 @@ impl RemoteProjects {
                             .tooltip(|cx| Tooltip::text("Add a remote project", cx))
                             .on_click(cx.listener(
                                 move |this, _, cx| {
-                                    this.mode = Mode::CreateRemoteProject(CreateRemoteProject {
-                                        dev_server_id,
-                                        creating: false,
-                                        remote_project: None,
-                                    });
+                                    this.mode =
+                                        Mode::CreateDevServerProject(CreateDevServerProject {
+                                            dev_server_id,
+                                            creating: false,
+                                            remote_project: None,
+                                        });
                                     this.remote_project_path_input
                                         .read(cx)
                                         .focus_handle(cx)
@@ -371,7 +372,7 @@ impl RemoteProjects {
 
     fn render_remote_project(
         &mut self,
-        project: &RemoteProject,
+        project: &DevServerProject,
         cx: &mut ViewContext<Self>,
     ) -> impl IntoElement {
         let remote_project_id = project.id;
@@ -597,7 +598,7 @@ impl RemoteProjects {
     }
 
     fn render_create_remote_project(&self, cx: &mut ViewContext<Self>) -> impl IntoElement {
-        let Mode::CreateRemoteProject(CreateRemoteProject {
+        let Mode::CreateDevServerProject(CreateDevServerProject {
             dev_server_id,
             creating,
             remote_project,
@@ -683,7 +684,7 @@ impl RemoteProjects {
                 let status = self
                     .remote_project_store
                     .read(cx)
-                    .remote_project(RemoteProjectId(remote_project.id))
+                    .remote_project(DevServerProjectId(remote_project.id))
                     .map(|project| {
                         if project.project_id.is_some() {
                             DevServerStatus::Online
@@ -740,7 +741,7 @@ impl Render for RemoteProjects {
             .max_h(rems(40.))
             .child(match &self.mode {
                 Mode::Default => self.render_default(cx).into_any_element(),
-                Mode::CreateRemoteProject(_) => {
+                Mode::CreateDevServerProject(_) => {
                     self.render_create_remote_project(cx).into_any_element()
                 }
                 Mode::CreateDevServer(_) => self.render_create_dev_server(cx).into_any_element(),

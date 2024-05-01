@@ -2,7 +2,7 @@ use super::SerializedAxis;
 use crate::{item::ItemHandle, ItemDeserializers, Member, Pane, PaneAxis, Workspace, WorkspaceId};
 use anyhow::{Context, Result};
 use async_recursion::async_recursion;
-use client::RemoteProjectId;
+use client::DevServerProjectId;
 use db::sqlez::{
     bindable::{Bind, Column, StaticColumnCount},
     statement::Statement,
@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct SerializedRemoteProject {
-    pub id: RemoteProjectId,
+    pub id: DevServerProjectId,
     pub dev_server_name: String,
     pub path: String,
 }
@@ -90,7 +90,7 @@ impl Column for SerializedRemoteProject {
         let path = statement.column_text(start_index + 2)?.to_string();
         Ok((
             Self {
-                id: RemoteProjectId(id as u64),
+                id: DevServerProjectId(id as u64),
                 dev_server_name,
                 path,
             },

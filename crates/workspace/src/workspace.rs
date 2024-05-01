@@ -3637,7 +3637,7 @@ impl Workspace {
             } else {
                 None
             }
-        } else if let Some(remote_project_id) = self.project().read(cx).remote_project_id() {
+        } else if let Some(remote_project_id) = self.project().read(cx).dev_server_project_id() {
             let store = remote_projects::Store::global(cx).read(cx);
             maybe!({
                 let project = store.remote_project(remote_project_id)?;
@@ -4530,7 +4530,7 @@ async fn join_channel_internal(
                         return None;
                     }
                     let project = workspace.project.read(cx);
-                    if (project.is_local() || project.remote_project_id().is_some())
+                    if (project.is_local() || project.dev_server_project_id().is_some())
                         && project.visible_worktrees(cx).any(|tree| {
                             tree.read(cx)
                                 .root_entry()

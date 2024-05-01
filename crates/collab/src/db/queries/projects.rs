@@ -30,7 +30,7 @@ impl Database {
         room_id: RoomId,
         connection: ConnectionId,
         worktrees: &[proto::WorktreeMetadata],
-        remote_project_id: Option<RemoteProjectId>,
+        remote_project_id: Option<DevServerProjectId>,
     ) -> Result<TransactionGuard<(ProjectId, proto::Room)>> {
         self.room_transaction(room_id, |tx| async move {
             let participant = room_participant::Entity::find()
@@ -797,7 +797,7 @@ impl Database {
                     name: language_server.name,
                 })
                 .collect(),
-            remote_project_id: project.remote_project_id,
+            dev_server_project_id: project.remote_project_id,
         };
         Ok((project, replica_id as ReplicaId))
     }

@@ -9,13 +9,13 @@ use crate::db::ProjectId;
 
 use super::{
     dev_server, project, project_collaborator, remote_project, worktree, Database, DevServerId,
-    RejoinedProject, RemoteProjectId, ResharedProject, ServerId, UserId,
+    DevServerProjectId, RejoinedProject, ResharedProject, ServerId, UserId,
 };
 
 impl Database {
     pub async fn get_remote_project(
         &self,
-        remote_project_id: RemoteProjectId,
+        remote_project_id: DevServerProjectId,
     ) -> crate::Result<remote_project::Model> {
         self.transaction(|tx| async move {
             Ok(remote_project::Entity::find_by_id(remote_project_id)
@@ -29,7 +29,7 @@ impl Database {
     pub async fn get_remote_projects_for_dev_server(
         &self,
         dev_server_id: DevServerId,
-    ) -> crate::Result<Vec<proto::RemoteProject>> {
+    ) -> crate::Result<Vec<proto::DevServerProject>> {
         self.transaction(|tx| async move {
             let servers = remote_project::Entity::find()
                 .filter(remote_project::Column::DevServerId.eq(dev_server_id))
@@ -38,7 +38,7 @@ impl Database {
                 .await?;
             Ok(servers
                 .into_iter()
-                .map(|(remote_project, project)| proto::RemoteProject {
+                .map(|(remote_project, project)| proto::DevServerProject {
                     id: remote_project.id.to_proto(),
                     project_id: project.map(|p| p.id.to_proto()),
                     dev_server_id: remote_project.dev_server_id.to_proto(),
@@ -53,7 +53,7 @@ impl Database {
         &self,
         user_id: UserId,
         tx: &DatabaseTransaction,
-    ) -> crate::Result<Vec<RemoteProjectId>> {
+    ) -> crate::Result<Vec<DevServerProjectId>> {
         let dev_servers = dev_server::Entity::find()
             .filter(dev_server::Column::UserId.eq(user_id))
             .find_with_related(remote_project::Entity)
@@ -68,7 +68,7 @@ impl Database {
 
     pub async fn owner_for_remote_project(
         &self,
-        remote_project_id: RemoteProjectId,
+        remote_project_id: DevServerProjectId,
         tx: &DatabaseTransaction,
     ) -> crate::Result<UserId> {
         let dev_server = remote_project::Entity::find_by_id(remote_project_id)
@@ -105,7 +105,7 @@ impl Database {
         dev_server_id: DevServerId,
         path: &str,
         user_id: UserId,
-    ) -> crate::Result<(remote_project::Model, proto::RemoteProjectsUpdate)> {
+    ) -> crate::Result<(remote_project::Model, proto::DevServerProjectsUpdate)> {
         self.transaction(|tx| async move {
             let dev_server = dev_server::Entity::find_by_id(dev_server_id)
                 .one(&*tx)
@@ -130,13 +130,17 @@ impl Database {
         .await
     }
 
-    pub async fn share_remote_project(
+    pub async fn share_dev_server_project(
         &self,
-        remote_project_id: RemoteProjectId,
+        remote_project_id: DevServerProjectId,
         dev_server_id: DevServerId,
         connection: ConnectionId,
         worktrees: &[proto::WorktreeMetadata],
-    ) -> crate::Result<(proto::RemoteProject, UserId, proto::RemoteProjectsUpdate)> {
+    ) -> crate::Result<(
+        proto::DevServerProject,
+        UserId,
+        proto::DevServerProjectsUpdate,
+    )> {
         self.transaction(|tx| async move {
             let dev_server = dev_server::Entity::find_by_id(dev_server_id)
                 .one(&*tx)

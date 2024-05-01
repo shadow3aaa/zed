@@ -1,5 +1,5 @@
 use anyhow::Result;
-use client::RemoteProjectId;
+use client::DevServerProjectId;
 use client::{user::UserStore, Client, ClientSettings};
 use fs::Fs;
 use futures::Future;
@@ -20,7 +20,7 @@ pub struct DevServer {
     client: Arc<Client>,
     app_state: AppState,
     remote_shutdown: bool,
-    projects: HashMap<RemoteProjectId, Model<Project>>,
+    projects: HashMap<DevServerProjectId, Model<Project>>,
     _subscriptions: Vec<client::Subscription>,
     _maintain_connection: Task<Option<()>>,
 }
@@ -155,7 +155,7 @@ impl DevServer {
                 .payload
                 .projects
                 .into_iter()
-                .filter(|project| !this.projects.contains_key(&RemoteProjectId(project.id)))
+                .filter(|project| !this.projects.contains_key(&DevServerProjectId(project.id)))
                 .collect::<Vec<_>>();
 
             (added_projects, removed_projects)
@@ -176,7 +176,7 @@ impl DevServer {
 
     async fn handle_validate_remote_project_request(
         this: Model<Self>,
-        envelope: TypedEnvelope<proto::ValidateRemoteProjectRequest>,
+        envelope: TypedEnvelope<proto::ValidateDevServerProjectRequest>,
         _: Arc<Client>,
         cx: AsyncAppContext,
     ) -> Result<proto::Ack> {
@@ -186,7 +186,7 @@ impl DevServer {
 
         let path_exists = fs.is_dir(path).await;
         if !path_exists {
-            return Err(anyhow::anyhow!(ErrorCode::RemoteProjectPathDoesNotExist))?;
+            return Err(anyhow::anyhow!(ErrorCode::DevServerProjectPathDoesNotExist))?;
         }
 
         Ok(proto::Ack {})
@@ -206,7 +206,7 @@ impl DevServer {
 
     fn unshare_project(
         &mut self,
-        remote_project_id: &RemoteProjectId,
+        remote_project_id: &DevServerProjectId,
         cx: &mut ModelContext<Self>,
     ) -> Result<()> {
         if let Some(project) = self.projects.remove(remote_project_id) {
@@ -217,7 +217,7 @@ impl DevServer {
 
     async fn share_project(
         this: Model<Self>,
-        remote_project: &proto::RemoteProject,
+        dev_server_project: &proto::DevServerProject,
         cx: &mut AsyncAppContext,
     ) -> Result<()> {
         let (client, project) = this.update(cx, |this, cx| {
@@ -233,7 +233,7 @@ impl DevServer {
             (this.client.clone(), project)
         })?;
 
-        let path = shellexpand::tilde(&remote_project.path).to_string();
+        let path = shellexpand::tilde(&dev_server_project.path).to_string();
 
         project
             .update(cx, |project, cx| {
@@ -245,8 +245,8 @@ impl DevServer {
             project.read_with(cx, |project, cx| project.worktree_metadata_protos(cx))?;
 
         let response = client
-            .request(proto::ShareRemoteProject {
-                remote_project_id: remote_project.id,
+            .request(proto::ShareDevServerProject {
+                dev_server_project_id: dev_server_project.id,
                 worktrees,
             })
             .await?;
@@ -255,7 +255,7 @@ impl DevServer {
         project.update(cx, |project, cx| project.shared(project_id, cx))??;
         this.update(cx, |this, _| {
             this.projects
-                .insert(RemoteProjectId(remote_project.id), project);
+                .insert(DevServerProjectId(dev_server_project.id), project);
         })?;
         Ok(())
     }

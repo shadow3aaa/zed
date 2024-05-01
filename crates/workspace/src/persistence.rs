@@ -3,7 +3,7 @@ pub mod model;
 use std::path::Path;
 
 use anyhow::{anyhow, bail, Context, Result};
-use client::RemoteProjectId;
+use client::DevServerProjectId;
 use db::{define_connection, query, sqlez::connection::Connection, sqlez_macros::sql};
 use gpui::{point, size, Axis, Bounds};
 
@@ -576,7 +576,7 @@ impl WorkspaceDb {
         let remote_projects = self.remote_projects()?;
 
         for (id, location, remote_project_id) in self.recent_workspaces()? {
-            if let Some(remote_project_id) = remote_project_id.map(RemoteProjectId) {
+            if let Some(remote_project_id) = remote_project_id.map(DevServerProjectId) {
                 if let Some(remote_project) =
                     remote_projects.iter().find(|rp| rp.id == remote_project_id)
                 {

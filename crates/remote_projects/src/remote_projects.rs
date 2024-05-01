@@ -7,27 +7,27 @@ use rpc::{
 use std::{collections::HashMap, sync::Arc};
 
 use client::{Client, ProjectId};
-pub use client::{DevServerId, RemoteProjectId};
+pub use client::{DevServerId, DevServerProjectId};
 
 pub struct Store {
-    remote_projects: HashMap<RemoteProjectId, RemoteProject>,
+    remote_projects: HashMap<DevServerProjectId, DevServerProject>,
     dev_servers: HashMap<DevServerId, DevServer>,
     _subscriptions: Vec<client::Subscription>,
     client: Arc<Client>,
 }
 
 #[derive(Debug, Clone)]
-pub struct RemoteProject {
-    pub id: RemoteProjectId,
+pub struct DevServerProject {
+    pub id: DevServerProjectId,
     pub project_id: Option<ProjectId>,
     pub path: SharedString,
     pub dev_server_id: DevServerId,
 }
 
-impl From<proto::RemoteProject> for RemoteProject {
-    fn from(project: proto::RemoteProject) -> Self {
+impl From<proto::DevServerProject> for DevServerProject {
+    fn from(project: proto::DevServerProject) -> Self {
         Self {
-            id: RemoteProjectId(project.id),
+            id: DevServerProjectId(project.id),
             project_id: project.project_id.map(|id| ProjectId(id)),
             path: project.path.into(),
             dev_server_id: DevServerId(project.dev_server_id),
@@ -77,8 +77,8 @@ impl Store {
         }
     }
 
-    pub fn remote_projects_for_server(&self, id: DevServerId) -> Vec<RemoteProject> {
-        let mut projects: Vec<RemoteProject> = self
+    pub fn remote_projects_for_server(&self, id: DevServerId) -> Vec<DevServerProject> {
+        let mut projects: Vec<DevServerProject> = self
             .remote_projects
             .values()
             .filter(|project| project.dev_server_id == id)
@@ -104,19 +104,19 @@ impl Store {
             .unwrap_or(DevServerStatus::Offline)
     }
 
-    pub fn remote_projects(&self) -> Vec<RemoteProject> {
-        let mut projects: Vec<RemoteProject> = self.remote_projects.values().cloned().collect();
+    pub fn remote_projects(&self) -> Vec<DevServerProject> {
+        let mut projects: Vec<DevServerProject> = self.remote_projects.values().cloned().collect();
         projects.sort_by_key(|p| (p.path.clone(), p.id));
         projects
     }
 
-    pub fn remote_project(&self, id: RemoteProjectId) -> Option<&RemoteProject> {
+    pub fn remote_project(&self, id: DevServerProjectId) -> Option<&DevServerProject> {
         self.remote_projects.get(&id)
     }
 
     async fn handle_remote_projects_update(
         this: Model<Self>,
-        envelope: TypedEnvelope<proto::RemoteProjectsUpdate>,
+        envelope: TypedEnvelope<proto::DevServerProjectsUpdate>,
         _: Arc<Client>,
         mut cx: AsyncAppContext,
     ) -> Result<()> {
@@ -131,7 +131,7 @@ impl Store {
                 .payload
                 .remote_projects
                 .into_iter()
-                .map(|project| (RemoteProjectId(project.id), project.into()))
+                .map(|project| (DevServerProjectId(project.id), project.into()))
                 .collect();
 
             cx.notify();
@@ -144,11 +144,11 @@ impl Store {
         dev_server_id: DevServerId,
         path: String,
         cx: &mut ModelContext<Self>,
-    ) -> Task<Result<proto::CreateRemoteProjectResponse>> {
+    ) -> Task<Result<proto::CreateDevServerProjectResponse>> {
         let client = self.client.clone();
         cx.background_executor().spawn(async move {
             client
-                .request(proto::CreateRemoteProject {
+                .request(proto::CreateDevServerProject {
                     dev_server_id: dev_server_id.0,
                     path,
                 })

@@ -171,7 +171,7 @@ impl Render for CollabTitlebarItem {
                         let room = room.read(cx);
                         let project = self.project.read(cx);
                         let is_local = project.is_local();
-                        let is_remote_project = project.remote_project_id().is_some();
+                        let is_remote_project = project.dev_server_project_id().is_some();
                         let is_shared = (is_local || is_remote_project) && project.is_shared();
                         let is_muted = room.is_muted();
                         let is_deafened = room.is_deafened().unwrap_or(false);

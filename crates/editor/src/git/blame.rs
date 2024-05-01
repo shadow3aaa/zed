@@ -126,6 +126,7 @@ impl GitBlame {
 
             move |this, _, event, cx| match event {
                 project::Event::WorktreeUpdatedEntries(_, updated) => {
+                    dbg!(&updated);
                     let project_entry_id = buffer.read(cx).entry_id(cx);
                     if updated
                         .iter()
@@ -136,6 +137,7 @@ impl GitBlame {
                     }
                 }
                 project::Event::WorktreeUpdatedGitRepositories => {
+                    dbg!("git updated");
                     log::debug!("Status of git repositories updated. Regenerating blame data...",);
                     this.generate(cx);
                 }
@@ -361,6 +363,7 @@ impl GitBlame {
                 .await;
 
             this.update(&mut cx, |this, cx| {
+                dbg!("Edit");
                 this.generate(cx);
             })
         })

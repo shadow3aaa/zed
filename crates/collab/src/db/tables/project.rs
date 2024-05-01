@@ -1,4 +1,4 @@
-use crate::db::{HostedProjectId, ProjectId, RemoteProjectId, Result, RoomId, ServerId, UserId};
+use crate::db::{DevServerProjectId, HostedProjectId, ProjectId, Result, RoomId, ServerId, UserId};
 use anyhow::anyhow;
 use rpc::ConnectionId;
 use sea_orm::entity::prelude::*;
@@ -13,7 +13,7 @@ pub struct Model {
     pub host_connection_id: Option<i32>,
     pub host_connection_server_id: Option<ServerId>,
     pub hosted_project_id: Option<HostedProjectId>,
-    pub remote_project_id: Option<RemoteProjectId>,
+    pub remote_project_id: Option<DevServerProjectId>,
 }
 
 impl Model {
