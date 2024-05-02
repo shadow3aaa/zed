@@ -428,8 +428,9 @@ wasmtime = { opt-level = 3 }
 
 [profile.release]
 debug = "limited"
-lto = "thin"
+lto = "fat"
 codegen-units = 1
+opt-level = 3
 
 [profile.release.package]
 zed = { codegen-units = 16 }
