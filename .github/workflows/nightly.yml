@@ -1,0 +1,53 @@
+name: Release Nightly
+
+on:
+  schedule:
+    # Fire every day at 7:00am UTC (Roughly before EU workday and after US workday)
+    - cron: "0 7 * * *"
+  push:
+    tags:
+      - "nightly"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows-build:
+  
+    runs-on: windows-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: false
+          submodules: "recursive"
+
+      - name: Build
+        run: cargo build -p zed -r -Z build-std
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-nightly
+          path: target/release/zed.exe
+  
+  linux-build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: false
+          submodules: "recursive"
+
+      - name: configure linux
+        shell: bash -euxo pipefail {0}
+        run: script/linux
+
+      - name: Build
+        run: cargo build -p zed -r -Z build-std
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-nightly
+          path: target/release/zed
