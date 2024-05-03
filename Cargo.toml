@@ -428,7 +428,7 @@ wasmtime = { opt-level = 3 }
 
 [profile.release]
 debug = "limited"
-lto = "fat"
+lto = "thin"
 codegen-units = 1
 opt-level = 3
 
