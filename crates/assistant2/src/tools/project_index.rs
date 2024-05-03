@@ -1,6 +1,9 @@
 use anyhow::Result;
-use assistant_tooling::LanguageModelTool;
-use gpui::{prelude::*, AnyView, Model, Task};
+use assistant_tooling::{
+    // assistant_tool_button::{AssistantToolButton, ToolStatus},
+    LanguageModelTool,
+};
+use gpui::{prelude::*, Model, Task};
 use project::Fs;
 use schemars::JsonSchema;
 use semantic_index::{ProjectIndex, Status};
@@ -199,13 +202,6 @@ impl LanguageModelTool for ProjectIndexTool {
         cx.new_view(|_cx| ProjectIndexView { input, output })
     }
 
-    fn status_view(&self, cx: &mut WindowContext) -> Option<AnyView> {
-        Some(
-            cx.new_view(|cx| ProjectIndexStatusView::new(self.project_index.clone(), cx))
-                .into(),
-        )
-    }
-
     fn format(_input: &Self::Input, output: &Result<Self::Output>) -> String {
         match &output {
             Ok(output) => {
@@ -234,33 +230,5 @@ impl LanguageModelTool for ProjectIndexTool {
             }
             Err(err) => format!("Error: {}", err),
         }
-    }
-}
-
-struct ProjectIndexStatusView {
-    project_index: Model<ProjectIndex>,
-}
-
-impl ProjectIndexStatusView {
-    pub fn new(project_index: Model<ProjectIndex>, cx: &mut ViewContext<Self>) -> Self {
-        cx.subscribe(&project_index, |_this, _, _status: &Status, cx| {
-            cx.notify();
-        })
-        .detach();
-        Self { project_index }
-    }
-}
-
-impl Render for ProjectIndexStatusView {
-    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
-        let status = self.project_index.read(cx).status();
-
-        h_flex().gap_2().map(|element| match status {
-            Status::Idle => element.child(Label::new("Project index ready")),
-            Status::Loading => element.child(Label::new("Project index loading...")),
-            Status::Scanning { remaining_count } => element.child(Label::new(format!(
-                "Project index scanning: {remaining_count} remaining..."
-            ))),
-        })
     }
 }

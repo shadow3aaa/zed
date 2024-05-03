@@ -467,7 +467,7 @@ pub struct Editor {
     next_inlay_id: usize,
     _subscriptions: Vec<Subscription>,
     pixel_position_of_newest_cursor: Option<gpui::Point<Pixels>>,
-    gutter_width: Pixels,
+    gutter_dimensions: GutterDimensions,
     pub vim_replace_map: HashMap<Range<usize>, String>,
     style: Option<EditorStyle>,
     editor_actions: Vec<Box<dyn Fn(&mut ViewContext<Self>)>>,
@@ -503,6 +503,7 @@ pub struct EditorSnapshot {
 
 const GIT_BLAME_GUTTER_WIDTH_CHARS: f32 = 53.;
 
+#[derive(Debug, Clone, Copy)]
 pub struct GutterDimensions {
     pub left_padding: Pixels,
     pub right_padding: Pixels,
@@ -837,6 +838,7 @@ impl CompletionsMenu {
     }
 
     fn pre_resolve_completion_documentation(
+        buffer: Model<Buffer>,
         completions: Arc<RwLock<Box<[Completion]>>>,
         matches: Arc<[StringMatch]>,
         editor: &Editor,
@@ -852,6 +854,7 @@ impl CompletionsMenu {
         };
 
         let resolve_task = provider.resolve_completions(
+            buffer,
             matches.iter().map(|m| m.candidate_id).collect(),
             completions.clone(),
             cx,
@@ -880,7 +883,12 @@ impl CompletionsMenu {
         };
 
         let resolve_task = project.update(cx, |project, cx| {
-            project.resolve_completions(vec![completion_index], self.completions.clone(), cx)
+            project.resolve_completions(
+                self.buffer.clone(),
+                vec![completion_index],
+                self.completions.clone(),
+                cx,
+            )
         });
 
         let delay_ms =
@@ -1510,7 +1518,7 @@ impl Editor {
             pixel_position_of_newest_cursor: None,
             last_bounds: None,
             expect_bounds_change: None,
-            gutter_width: Default::default(),
+            gutter_dimensions: GutterDimensions::default(),
             style: None,
             show_cursor_names: false,
             hovered_cursors: Default::default(),
@@ -3463,7 +3471,7 @@ impl Editor {
                                 )
                             })
                             .collect(),
-                        buffer,
+                        buffer: buffer.clone(),
                         completions: Arc::new(RwLock::new(completions.into())),
                         matches: Vec::new().into(),
                         selected_item: 0,
@@ -3490,6 +3498,7 @@ impl Editor {
                                 .completion_documentation_pre_resolve_debounce
                                 .fire_new(delay, cx, |editor, cx| {
                                     CompletionsMenu::pre_resolve_completion_documentation(
+                                        buffer,
                                         completions,
                                         matches,
                                         editor,
@@ -5183,6 +5192,24 @@ impl Editor {
         self.manipulate_text(cx, |text| text.to_case(Case::Camel))
     }
 
+    pub fn convert_to_opposite_case(
+        &mut self,
+        _: &ConvertToOppositeCase,
+        cx: &mut ViewContext<Self>,
+    ) {
+        self.manipulate_text(cx, |text| {
+            text.chars()
+                .fold(String::with_capacity(text.len()), |mut t, c| {
+                    if c.is_uppercase() {
+                        t.extend(c.to_lowercase());
+                    } else {
+                        t.extend(c.to_uppercase());
+                    }
+                    t
+                })
+        })
+    }
+
     fn manipulate_text<Fn>(&mut self, cx: &mut ViewContext<Self>, mut callback: Fn)
     where
         Fn: FnMut(&str) -> String,
@@ -6232,13 +6259,13 @@ impl Editor {
 
     pub fn move_to_beginning_of_line(
         &mut self,
-        _: &MoveToBeginningOfLine,
+        action: &MoveToBeginningOfLine,
         cx: &mut ViewContext<Self>,
     ) {
         self.change_selections(Some(Autoscroll::fit()), cx, |s| {
             s.move_cursors_with(|map, head, _| {
                 (
-                    movement::indented_line_beginning(map, head, true),
+                    movement::indented_line_beginning(map, head, action.stop_at_soft_wraps),
                     SelectionGoal::None,
                 )
             });
@@ -6282,10 +6309,13 @@ impl Editor {
         });
     }
 
-    pub fn move_to_end_of_line(&mut self, _: &MoveToEndOfLine, cx: &mut ViewContext<Self>) {
+    pub fn move_to_end_of_line(&mut self, action: &MoveToEndOfLine, cx: &mut ViewContext<Self>) {
         self.change_selections(Some(Autoscroll::fit()), cx, |s| {
             s.move_cursors_with(|map, head, _| {
-                (movement::line_end(map, head, true), SelectionGoal::None)
+                (
+                    movement::line_end(map, head, action.stop_at_soft_wraps),
+                    SelectionGoal::None,
+                )
             });
         })
     }
@@ -9103,12 +9133,24 @@ impl Editor {
     }
 
     pub fn render_git_blame_inline(&mut self, cx: &mut WindowContext) -> bool {
-        self.focus_handle.is_focused(cx) && self.show_git_blame_inline && self.has_blame_entries(cx)
+        self.show_git_blame_inline
+            && self.focus_handle.is_focused(cx)
+            && !self.newest_selection_head_on_empty_line(cx)
+            && self.has_blame_entries(cx)
     }
 
     fn has_blame_entries(&self, cx: &mut WindowContext) -> bool {
         self.blame()
             .map_or(false, |blame| blame.read(cx).has_generated_entries())
+    }
+
+    fn newest_selection_head_on_empty_line(&mut self, cx: &mut WindowContext) -> bool {
+        let cursor_anchor = self.selections.newest_anchor().head();
+
+        let snapshot = self.buffer.read(cx).snapshot(cx);
+        let buffer_row = cursor_anchor.to_point(&snapshot).row;
+
+        snapshot.line_len(buffer_row) == 0
     }
 
     fn get_permalink_to_line(&mut self, cx: &mut ViewContext<Self>) -> Result<url::Url> {
@@ -10213,6 +10255,7 @@ pub trait CompletionProvider {
 
     fn resolve_completions(
         &self,
+        buffer: Model<Buffer>,
         completion_indices: Vec<usize>,
         completions: Arc<RwLock<Box<[Completion]>>>,
         cx: &mut ViewContext<Editor>,
@@ -10241,12 +10284,13 @@ impl CompletionProvider for Model<Project> {
 
     fn resolve_completions(
         &self,
+        buffer: Model<Buffer>,
         completion_indices: Vec<usize>,
         completions: Arc<RwLock<Box<[Completion]>>>,
         cx: &mut ViewContext<Editor>,
     ) -> Task<Result<bool>> {
         self.update(cx, |project, cx| {
-            project.resolve_completions(completion_indices, completions, cx)
+            project.resolve_completions(buffer, completion_indices, completions, cx)
         })
     }
 
@@ -10782,7 +10826,7 @@ impl ViewInputHandler for Editor {
 
         let start = OffsetUtf16(range_utf16.start).to_display_point(&snapshot);
         let x = snapshot.x_for_display_point(start, &text_layout_details) - scroll_left
-            + self.gutter_width;
+            + self.gutter_dimensions.width;
         let y = line_height * (start.row() as f32 - scroll_position.y);
 
         Some(Bounds {

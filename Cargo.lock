@@ -2272,6 +2272,7 @@ dependencies = [
  "collections",
  "ctor",
  "dashmap",
+ "dev_server_projects",
  "editor",
  "env_logger",
  "envy",
@@ -2301,7 +2302,6 @@ dependencies = [
  "prost",
  "rand 0.8.5",
  "release_channel",
- "remote_projects",
  "reqwest",
  "rpc",
  "rustc-demangle",
@@ -2344,6 +2344,7 @@ dependencies = [
  "clock",
  "collections",
  "db",
+ "dev_server_projects",
  "editor",
  "emojis",
  "extensions_ui",
@@ -2359,7 +2360,6 @@ dependencies = [
  "pretty_assertions",
  "project",
  "recent_projects",
- "remote_projects",
  "rich_text",
  "rpc",
  "schemars",
@@ -3175,6 +3175,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "dev_server_projects"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "client",
+ "gpui",
+ "rpc",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -5678,9 +5690,9 @@ checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 
 [[package]]
 name = "libmimalloc-sys"
-version = "0.1.35"
+version = "0.1.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3979b5c37ece694f1f5e51e7ecc871fdb0f517ed04ee45f88d15d6d553cb9664"
+checksum = "81eb4061c0582dedea1cbc7aff2240300dd6982e0239d1c99e65c1dbf4a30ba7"
 dependencies = [
  "cc",
  "libc",
@@ -6045,9 +6057,9 @@ dependencies = [
 
 [[package]]
 name = "mimalloc"
-version = "0.1.39"
+version = "0.1.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa01922b5ea280a911e323e4d2fd24b7fe5cc4042e0d2cda3c40775cdc4bdc9c"
+checksum = "9f41a2280ded0da56c8cf898babb86e8f10651a34adcfff190ae9a1159c6908d"
 dependencies = [
  "libmimalloc-sys",
 ]
@@ -7793,6 +7805,7 @@ name = "recent_projects"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dev_server_projects",
  "editor",
  "feature_flags",
  "fuzzy",
@@ -7802,7 +7815,6 @@ dependencies = [
  "ordered-float 2.10.0",
  "picker",
  "project",
- "remote_projects",
  "rpc",
  "serde",
  "serde_json",
@@ -7935,18 +7947,6 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "once_cell",
-]
-
-[[package]]
-name = "remote_projects"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "client",
- "gpui",
- "rpc",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -8704,6 +8704,8 @@ dependencies = [
  "sha2 0.10.7",
  "smol",
  "tempfile",
+ "tree-sitter",
+ "unindent",
  "util",
  "worktree",
 ]
@@ -12407,6 +12409,7 @@ dependencies = [
  "collections",
  "db",
  "derive_more",
+ "dev_server_projects",
  "env_logger",
  "fs",
  "futures 0.3.28",
@@ -12419,7 +12422,6 @@ dependencies = [
  "parking_lot",
  "postage",
  "project",
- "remote_projects",
  "schemars",
  "serde",
  "serde_json",
@@ -12682,6 +12684,7 @@ dependencies = [
  "copilot",
  "copilot_ui",
  "db",
+ "dev_server_projects",
  "diagnostics",
  "editor",
  "env_logger",
@@ -12719,7 +12722,6 @@ dependencies = [
  "quick_action_bar",
  "recent_projects",
  "release_channel",
- "remote_projects",
  "rope",
  "search",
  "serde",
@@ -12790,7 +12792,7 @@ dependencies = [
 
 [[package]]
 name = "zed_elixir"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "zed_extension_api 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
